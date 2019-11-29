@@ -1,0 +1,122 @@
+import serial 
+import time
+import random
+import curses
+from curses import textpad
+
+def create_food(snake, box):
+
+    food = None
+    while food is None:
+        food = [random.randint(box[0][0]+3, box[1][0]-3),
+                random.randint(box[0][1]+3, box[1][1]-3)]
+        if food in snake:
+            food = None
+    return food
+
+def getcontrol():
+    ArduinoSerial = serial.Serial('COM5',9600) 
+    
+    while 1:
+        incoming = str(ArduinoSerial.readline())
+        if 'Up' in incoming:
+            return "Up"
+        elif 'Down' in incoming:
+            return "Down"
+        elif 'Left' in incoming:
+            return "Left"
+        elif 'Right' in incoming:
+            return "Right"
+
+def main(stdscr):
+    # initial settings
+    curses.curs_set(0)
+    stdscr.nodelay(1)
+    stdscr.timeout(1)
+    
+
+
+    sh, sw = stdscr.getmaxyx()
+    box = [[10,20], [sh-10, sw-20]]  # [[ul_y, ul_x], [dr_y, dr_x]]
+    textpad.rectangle(stdscr, box[0][0], box[0][1], box[1][0], box[1][1])
+
+
+    snake = [[sh//2, sw//2+1], [sh//2, sw//2], [sh//2, sw//2-1]]
+    direction = curses.KEY_RIGHT
+
+
+    for y,x in snake:
+        stdscr.addstr(y, x, '#')
+
+
+    food = create_food(snake, box)
+    stdscr.addstr(food[0], food[1], '*')
+
+
+    score = 0
+    score_text = "Score: {}".format(score)
+    stdscr.addstr(1, sw//2 - len(score_text)//2, score_text)
+
+    while 1:
+        # non-blocking input
+        key=stdscr.getch()
+        key1=getcontrol()
+        stdscr.nodelay(1)
+        stdscr.timeout(1)
+        
+        
+        
+
+        # set direction if user pressed any arrow key
+        if key1 in ["Up", "Down", "Left", "Right"]:
+            direction = key1
+
+        # find next position of snake head
+        head = snake[0]
+        if direction == "Right":
+            new_head = [head[0], head[1]+1]
+        elif direction == "Left":
+            new_head = [head[0], head[1]-1]
+        elif direction == "Down":
+            new_head = [head[0]+1, head[1]]
+        elif direction == "Up":
+            new_head = [head[0]-1, head[1]]
+        
+
+        stdscr.addstr(new_head[0], new_head[1], '#')
+        curses.doupdate()
+        snake.insert(0, new_head)
+
+
+        if snake[0] == food:
+
+            score += 1
+            score_text = "Score: {}".format(score)
+            stdscr.addstr(1, sw//2 - len(score_text)//2, score_text)
+
+
+            food = create_food(snake, box)
+            stdscr.addstr(food[0], food[1], '*')
+
+            
+
+
+            
+        else:
+
+            stdscr.addstr(snake[-1][0], snake[-1][1], ' ')
+            snake.pop()
+
+        
+        if (snake[0][0] in [box[0][0], box[1][0]] or
+                snake[0][1] in [box[0][1], box[1][1]] or
+                snake[0] in snake[1:]):
+            msg = "Game Over!"
+            stdscr.addstr(sh//2, sw//2-len(msg)//2, msg)
+            stdscr.nodelay(0)
+            key=stdscr.getch()
+            key1=getcontrol()
+            break
+
+curses.wrapper(main)
+
